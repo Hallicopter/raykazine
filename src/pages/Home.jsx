@@ -41,7 +41,7 @@ const Home = ({ onNavigate }) => {
             ref={constraintsRef}
             style={styles.workbench}
         >
-            {contentItems.map(item => {
+            {contentItems.map((item, index) => {
                 // Responsive Scaling
                 // Padding ensures items don't stick to the very edge
                 const padding = 80;
@@ -92,7 +92,7 @@ const Home = ({ onNavigate }) => {
             <div style={styles.brandContainer}>
                 <h1 style={styles.logo}>RAYKAZINE</h1>
                 <div style={styles.tagline}>
-                    <span className="mono">[media labs]</span>
+                    <span className="mono">[media labs] v2.1</span>
                 </div>
 
                 {/* Index Link */}
