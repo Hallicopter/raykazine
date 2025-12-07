@@ -45,14 +45,40 @@ const Home = ({ onNavigate }) => {
             style={styles.workbench}
         >
             {contentItems.map((item, index) => {
-                // Responsive Scaling
-                // Padding ensures items don't stick to the very edge
-                const padding = 80;
-                const availableWidth = windowSize.width - (padding * 2);
-                const availableHeight = windowSize.height - (padding * 2);
+                // Determine item dimensions to ensure containment
+                let itemWidth = 200;
+                let itemHeight = 200;
 
-                const finalX = padding + (item.x * availableWidth);
-                const finalY = padding + (item.y * availableHeight);
+                switch (item.type) {
+                    case 'ESSAY':
+                        itemWidth = 340;
+                        itemHeight = 540; // Approx height + meta
+                        break;
+                    case 'TAPE':
+                        itemWidth = 300;
+                        itemHeight = 200;
+                        break;
+                    case 'NOTE':
+                        itemWidth = 240;
+                        itemHeight = 240;
+                        break;
+                    default:
+                        itemWidth = 250;
+                }
+
+                // Responsive Scaling with strict boundary enforcement
+                const padding = 40;
+                const minX = padding;
+                const minY = padding;
+                const maxX = windowSize.width - itemWidth - padding;
+                const maxY = windowSize.height - itemHeight - padding;
+
+                // Ensure we don't cross (e.g. extremely small screens)
+                const safeWidth = Math.max(0, maxX - minX);
+                const safeHeight = Math.max(0, maxY - minY);
+
+                const finalX = minX + (item.x * safeWidth);
+                const finalY = minY + (item.y * safeHeight);
 
                 return (
                     <DraggableArtifact
