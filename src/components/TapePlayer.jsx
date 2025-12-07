@@ -31,11 +31,40 @@ const TapePlayer = ({ title, date, duration, description, audioSrc, isFocused, o
         }
     };
 
+    const handleSeek = (e) => {
+        if (!audioRef.current) return;
+        const progressBar = e.currentTarget;
+        const clickX = e.clientX - progressBar.getBoundingClientRect().left;
+        const width = progressBar.offsetWidth;
+        const clickPercent = clickX / width;
+        const newTime = clickPercent * audioRef.current.duration;
+        audioRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+    };
+
+    const skip = (seconds) => {
+        if (!audioRef.current) return;
+        audioRef.current.currentTime = Math.max(0, Math.min(audioRef.current.currentTime + seconds, audioRef.current.duration));
+    };
+
     const formatTime = (time) => {
         const minutes = Math.floor(time / 60);
         const seconds = Math.floor(time % 60);
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} `;
     };
+
+    const getDuration = () => {
+        if (audioRef.current && audioRef.current.duration) {
+            return audioRef.current.duration;
+        }
+        // Fallback to parsing the duration string (e.g., "59:00")
+        const parts = duration.split(':');
+        return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    };
+
+    const progress = audioRef.current && audioRef.current.duration
+        ? (currentTime / audioRef.current.duration) * 100
+        : 0;
 
     return (
         <motion.div
@@ -77,13 +106,49 @@ const TapePlayer = ({ title, date, duration, description, audioSrc, isFocused, o
                 {/* Controls */}
                 <div style={styles.controls}>
                     <div style={styles.time}>{formatTime(currentTime)} / {duration}</div>
-                    <button
-                        style={styles.playBtn}
-                        onClick={togglePlay}
+
+                    {/* Progress Bar */}
+                    <div
+                        style={styles.progressBarContainer}
+                        onClick={handleSeek}
                     >
-                        {isPlaying ? <Pause size={20} color="#222" /> : <Play size={20} color="#222" />}
-                    </button>
-                    <span className="mono" style={{ fontSize: '0.6rem' }}>{date}</span>
+                        <div style={styles.progressBarBg}>
+                            <div
+                                style={{
+                                    ...styles.progressBarFill,
+                                    width: `${progress}%`
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Playback Controls */}
+                    <div style={styles.playbackControls}>
+                        <button
+                            style={styles.skipBtn}
+                            onClick={(e) => { e.stopPropagation(); skip(-10); }}
+                            title="Rewind 10s"
+                        >
+                            <span style={{ fontSize: '0.7rem' }}>-10s</span>
+                        </button>
+
+                        <button
+                            style={styles.playBtn}
+                            onClick={togglePlay}
+                        >
+                            {isPlaying ? <Pause size={20} color="#222" /> : <Play size={20} color="#222" />}
+                        </button>
+
+                        <button
+                            style={styles.skipBtn}
+                            onClick={(e) => { e.stopPropagation(); skip(10); }}
+                            title="Forward 10s"
+                        >
+                            <span style={{ fontSize: '0.7rem' }}>+10s</span>
+                        </button>
+                    </div>
+
+                    <span className="mono" style={{ fontSize: '0.6rem', textAlign: 'center', marginTop: '4px' }}>{date}</span>
                 </div>
             </motion.div>
 
@@ -196,12 +261,41 @@ const styles = {
     },
     controls: {
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        flexDirection: 'column',
+        gap: '8px',
     },
-    btn: {
-        width: '36px',
-        height: '36px',
+    time: {
+        fontFamily: 'monospace',
+        fontSize: '0.75rem',
+        textAlign: 'center',
+        color: '#666',
+    },
+    progressBarContainer: {
+        width: '100%',
+        cursor: 'pointer',
+        padding: '8px 0',
+    },
+    progressBarBg: {
+        width: '100%',
+        height: '4px',
+        backgroundColor: '#ddd',
+        borderRadius: '2px',
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: '#666',
+        transition: 'width 0.1s ease',
+    },
+    playbackControls: {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '12px',
+    },
+    playBtn: {
+        width: '40px',
+        height: '40px',
         borderRadius: '50%',
         border: '2px solid #ccc',
         backgroundColor: '#fff',
@@ -209,6 +303,21 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        transition: 'all 0.2s',
+    },
+    skipBtn: {
+        width: '50px',
+        height: '32px',
+        borderRadius: '4px',
+        border: '1px solid #ddd',
+        backgroundColor: '#f5f5f5',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'monospace',
+        color: '#555',
+        transition: 'all 0.2s',
     },
     expansion: {
         padding: '0 24px 24px 24px',
