@@ -114,16 +114,16 @@ rawItems.sort((a, b) => {
 // Deterministic Grumpy Max-Min Layout
 // "Grumpy" because items want to be as far away from each other as possible.
 
-const CANVAS_WIDTH = 1250;
-const CANVAS_HEIGHT = 750;
+const VIRTUAL_WIDTH = 1000;
+const VIRTUAL_HEIGHT = 1000;
 const COLS = 6;
 const ROWS = 4;
-const PADDING = 100;
+const PADDING = 50; // Virtual padding
 
 // Generate Grid Candidates
 let candidates = [];
-const xStep = (CANVAS_WIDTH - PADDING * 2) / (COLS - 1);
-const yStep = (CANVAS_HEIGHT - PADDING * 2) / (ROWS - 1);
+const xStep = (VIRTUAL_WIDTH - PADDING * 2) / (COLS - 1);
+const yStep = (VIRTUAL_HEIGHT - PADDING * 2) / (ROWS - 1);
 
 for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
@@ -149,7 +149,7 @@ let takenCandidates = new Set(); // Keep track of used grid points to avoid exac
 rawItems.forEach(item => {
     // Individual item RNG for jitter
     const itemRng = new SeededRNG(Math.abs(hashCode(item.id)));
-    const jitterRange = 20; // Reduced jitter for strict spacing
+    const jitterRange = 15; // Small jitter relative to virtual canvas (1000x1000)
 
     let bestX, bestY;
 
@@ -186,8 +186,8 @@ rawItems.forEach(item => {
     }
 
     if (!bestCandidate) {
-        bestX = layoutRng.nextRange(PADDING, CANVAS_WIDTH - PADDING);
-        bestY = layoutRng.nextRange(PADDING, CANVAS_HEIGHT - PADDING);
+        bestX = layoutRng.nextRange(PADDING, VIRTUAL_WIDTH - PADDING);
+        bestY = layoutRng.nextRange(PADDING, VIRTUAL_HEIGHT - PADDING);
     } else {
         bestX = bestCandidate.x;
         bestY = bestCandidate.y;
@@ -217,12 +217,13 @@ placedItems.sort((a, b) => {
     return dateA - dateB;
 });
 
-// 4. Final mapping with Z-index
+// 4. Final mapping with Normalized Z-index
+// x and y are normalized to 0-1
 let items = placedItems.map((item, index) => ({
     id: item.id,
     type: item.type,
-    x: item.x,
-    y: item.y,
+    x: item.x / VIRTUAL_WIDTH,
+    y: item.y / VIRTUAL_HEIGHT,
     r: item.r,
     z: item.providedZ !== undefined ? item.providedZ : index + 10, // Base Z > 10
     data: item.data

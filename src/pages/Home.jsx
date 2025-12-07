@@ -10,6 +10,24 @@ const Home = ({ onNavigate }) => {
     const [focusedId, setFocusedId] = useState(null);
     const [readContent, setReadContent] = useState(null);
 
+    // Track window size for responsive layout
+    const [windowSize, setWindowSize] = useState({
+        width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+        height: typeof window !== 'undefined' ? window.innerHeight : 800
+    });
+
+    useEffect(() => {
+        const handleResize = () => {
+            setWindowSize({
+                width: window.innerWidth,
+                height: window.innerHeight
+            });
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const handleFocus = (id) => {
         setFocusedId(id);
     };
@@ -23,42 +41,53 @@ const Home = ({ onNavigate }) => {
             ref={constraintsRef}
             style={styles.workbench}
         >
-            {contentItems.map(item => (
-                <DraggableArtifact
-                    key={item.id}
-                    id={item.id}
-                    initialX={item.x}
-                    initialY={item.y}
-                    rotate={item.r}
-                    baseZ={item.z}
-                    isFocused={focusedId === item.id}
-                    onFocus={handleFocus}
-                >
-                    {item.type === 'ESSAY' && (
-                        <PaperSheet
-                            {...item.data}
-                            type="ESSAY"
-                            onRead={() => handleRead({ ...item.data, type: 'ESSAY' })}
-                        />
-                    )}
-                    {item.type === 'TAPE' && (
-                        <TapePlayer
-                            {...item.data}
-                            isFocused={focusedId === item.id}
-                            onTogglePlay={(playing) => {
-                                if (playing) handleFocus(item.id);
-                            }}
-                        />
-                    )}
-                    {item.type === 'NOTE' && (
-                        <div style={styles.note} className="art-border">
-                            <span className="mono" style={{ color: 'var(--color-accent-sage)', marginBottom: '8px', display: 'block' }}>NOTE // 001</span>
-                            <p style={styles.handwriting}>{item.data.text}</p>
-                            <div style={styles.tape}></div>
-                        </div>
-                    )}
-                </DraggableArtifact>
-            ))}
+            {contentItems.map(item => {
+                // Responsive Scaling
+                // Padding ensures items don't stick to the very edge
+                const padding = 80;
+                const availableWidth = windowSize.width - (padding * 2);
+                const availableHeight = windowSize.height - (padding * 2);
+
+                const finalX = padding + (item.x * availableWidth);
+                const finalY = padding + (item.y * availableHeight);
+
+                return (
+                    <DraggableArtifact
+                        key={item.id}
+                        id={item.id}
+                        initialX={finalX}
+                        initialY={finalY}
+                        rotate={item.r}
+                        baseZ={item.z}
+                        isFocused={focusedId === item.id}
+                        onFocus={handleFocus}
+                    >
+                        {item.type === 'ESSAY' && (
+                            <PaperSheet
+                                {...item.data}
+                                type="ESSAY"
+                                onRead={() => handleRead({ ...item.data, type: 'ESSAY' })}
+                            />
+                        )}
+                        {item.type === 'TAPE' && (
+                            <TapePlayer
+                                {...item.data}
+                                isFocused={focusedId === item.id}
+                                onTogglePlay={(playing) => {
+                                    if (playing) handleFocus(item.id);
+                                }}
+                            />
+                        )}
+                        {item.type === 'NOTE' && (
+                            <div style={styles.note} className="art-border">
+                                <span className="mono" style={{ color: 'var(--color-accent-sage)', marginBottom: '8px', display: 'block' }}>NOTE // 001</span>
+                                <p style={styles.handwriting}>{item.data.text}</p>
+                                <div style={styles.tape}></div>
+                            </div>
+                        )}
+                    </DraggableArtifact>
+                );
+            })}
 
             <div style={styles.brandContainer}>
                 <h1 style={styles.logo}>RAYKAZINE</h1>

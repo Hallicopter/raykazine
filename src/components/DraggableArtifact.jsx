@@ -18,6 +18,8 @@ const DraggableArtifact = ({
             initial={{ x: initialX, y: initialY, rotate: rotate }}
             onPointerDown={() => onFocus(id)} // Focus on click/drag start
             animate={{
+                x: initialX,
+                y: initialY,
                 zIndex: isFocused ? 100 : baseZ,
                 scale: isFocused ? 1.02 : 1
             }}
