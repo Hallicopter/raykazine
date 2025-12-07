@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Special+Elite&family=Inter:wght@300;400;500&family=Pixelify+Sans:wght@400;700&family=Jacquard+12&family=VT323&display=swap');
+
+:root {
+    /* Retro Analog / Architect Palette */
+    --color-bg: #f4ecd8;
+    /* Sepia / Aged Paper - UNIFIED */
+    --color-text: #2b2b2b;
+    /* Graphite */
+    --color-text-muted: #666666;
+    /* Faded Pencil */
+
+    --color-grid-line: rgba(65, 105, 225, 0.25);
+    /* Blueprint Blueish, subtle */
+
+    --color-accent-sage: #8da399;
+    --color-accent-clay: #cfa68e;
+
+    --color-border: #2b2b2b;
+
+    /* Typography */
+    --font-display: 'Jacquard 12', system-ui;
+    /* Requested Title Font */
+    --font-pixel: 'Pixelify Sans', sans-serif;
+    /* Requested Subtitle Font */
+    --font-typewriter: 'Special Elite', monospace;
+    /* Essays / Body */
+    --font-terminal: 'VT323', monospace;
+    /* Index Page */
+    --font-sans: 'Inter', sans-serif;
+    /* UI Elements */
+
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 32px;
+    --spacing-xl: 64px;
+}

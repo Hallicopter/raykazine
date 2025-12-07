@@ -1,0 +1,56 @@
+@import './variables.css';
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    /* Abril Fatface is already bold/heavy */
+    letter-spacing: 0.02em;
+}
+
+p,
+.typewriter {
+    font-family: var(--font-typewriter);
+}
+
+.mono {
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Hand-drawn / Rough border utility */
+.art-border {
+    border: 2px solid var(--color-border);
+    /* Optional: rough border radius or clip-path could go here for extra hand-drawn feel, 
+     but keeping it clean architectural for now as per "Clean Lines" request */
+    box-shadow: 6px 6px 0 rgba(43, 43, 43, 0.1);
+    transition: all 0.2s ease;
+}
+
+.art-border:hover {
+    transform: translateY(-1px);
+    box-shadow: 8px 8px 0 rgba(43, 43, 43, 0.15);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-md);
+}
