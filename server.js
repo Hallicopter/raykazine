@@ -1,0 +1,336 @@
+import express from 'express';
+import cors from 'cors';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
+const PORT = 3001;
+const execAsync = promisify(exec);
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+
+// Helper to get file path based on category
+const getFilePath = (category, filename) => {
+  const baseDir = path.join(__dirname, 'src', 'content');
+  const sanitized = filename.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+  
+  switch (category) {
+    case 'essay':
+      return path.join(baseDir, 'essays', `${sanitized}.md`);
+    case 'article':
+      return path.join(baseDir, 'essays', `${sanitized}.md`);
+    case 'note':
+      return path.join(baseDir, 'notes', `${sanitized}.json`);
+    case 'experiment':
+      return path.join(baseDir, 'essays', `${sanitized}.md`);
+    default:
+      return path.join(baseDir, 'essays', `${sanitized}.md`);
+  }
+};
+
+// Helper to generate filename from title
+const generateFilename = (title) => {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+};
+
+// GET all articles (reads from file system)
+app.get('/api/articles', async (req, res) => {
+  try {
+    const articles = [];
+    const contentDir = path.join(__dirname, 'src', 'content');
+
+    // Read essays
+    const essaysDir = path.join(contentDir, 'essays');
+    try {
+      const essayFiles = await fs.readdir(essaysDir);
+      for (const file of essayFiles) {
+        if (file.endsWith('.md')) {
+          const content = await fs.readFile(path.join(essaysDir, file), 'utf-8');
+          const parsed = parseMarkdownFile(content, file);
+          if (parsed) {
+            articles.push({
+              id: file.replace('.md', ''),
+              category: 'essay',
+              type: 'ESSAY',
+              ...parsed
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // essays dir might not exist yet
+    }
+
+    // Read notes
+    const notesDir = path.join(contentDir, 'notes');
+    try {
+      const noteFiles = await fs.readdir(notesDir);
+      for (const file of noteFiles) {
+        if (file.endsWith('.json')) {
+          const content = await fs.readFile(path.join(notesDir, file), 'utf-8');
+          const data = JSON.parse(content);
+          articles.push({
+            id: file.replace('.json', ''),
+            category: 'note',
+            type: 'NOTE',
+            title: data.title || 'Untitled Note',
+            content: data.text || '',
+            excerpt: data.text?.slice(0, 100) || '',
+            date: data.date || new Date().toISOString().split('T')[0]
+          });
+        }
+      }
+    } catch (e) {
+      // notes dir might not exist yet
+    }
+
+    // Sort by date descending
+    articles.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+    res.json(articles);
+  } catch (error) {
+    console.error('Error reading articles:', error);
+    res.status(500).json({ error: 'Failed to read articles' });
+  }
+});
+
+// POST new article
+app.post('/api/articles', async (req, res) => {
+  try {
+    const { title, excerpt, content, category, date } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content required' });
+    }
+
+    const filename = generateFilename(title);
+    const filePath = getFilePath(category, filename);
+
+    // Ensure directory exists
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+
+    if (category === 'note') {
+      // JSON format for notes
+      const noteData = {
+        title,
+        text: content,
+        date,
+        x: 0,
+        y: 0,
+        r: 0,
+        z: 100
+      };
+      await fs.writeFile(filePath, JSON.stringify(noteData, null, 2));
+    } else {
+      // Markdown format for essays
+      const frontmatter = {
+        title,
+        excerpt: excerpt || content.slice(0, 150),
+        date,
+        type: category.toUpperCase()
+      };
+
+      const mdContent = `{${Object.entries(frontmatter)
+        .map(([k, v]) => `"${k}": "${v.toString().replace(/"/g, '\\"')}"`)
+        .join(', ')}}\n${content}`;
+
+      await fs.writeFile(filePath, mdContent);
+    }
+
+    res.json({
+      id: filename,
+      title,
+      excerpt,
+      content,
+      category,
+      date,
+      message: 'Article created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating article:', error);
+    res.status(500).json({ error: 'Failed to create article' });
+  }
+});
+
+// PUT (update) article
+app.put('/api/articles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, excerpt, content, category, date } = req.body;
+
+    const filename = generateFilename(title || id);
+    const filePath = getFilePath(category, filename);
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
+
+    if (category === 'note') {
+      const noteData = {
+        title,
+        text: content,
+        date
+      };
+      await fs.writeFile(filePath, JSON.stringify(noteData, null, 2));
+    } else {
+      const frontmatter = {
+        title,
+        excerpt: excerpt || content.slice(0, 150),
+        date,
+        type: category.toUpperCase()
+      };
+
+      const mdContent = `{${Object.entries(frontmatter)
+        .map(([k, v]) => `"${k}": "${v.toString().replace(/"/g, '\\"')}"`)
+        .join(', ')}}\n${content}`;
+
+      await fs.writeFile(filePath, mdContent);
+    }
+
+    res.json({ message: 'Article updated successfully' });
+  } catch (error) {
+    console.error('Error updating article:', error);
+    res.status(500).json({ error: 'Failed to update article' });
+  }
+});
+
+// DELETE article
+app.delete('/api/articles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category } = req.query;
+
+    const filePath = getFilePath(category, id);
+    await fs.unlink(filePath);
+
+    res.json({ message: 'Article deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting article:', error);
+    res.status(500).json({ error: 'Failed to delete article' });
+  }
+});
+
+// Helper to parse markdown frontmatter
+function parseMarkdownFile(content, filename) {
+  const match = content.match(/^{([\s\S]*?)}\n([\s\S]*)$/);
+  if (match) {
+    try {
+      const metadata = JSON.parse(`{${match[1]}}`);
+      const body = match[2].trim();
+      return {
+        title: metadata.title || filename,
+        excerpt: metadata.excerpt || body.slice(0, 150),
+        content: body,
+        date: metadata.date || new Date().toISOString().split('T')[0]
+      };
+    } catch (e) {
+      return {
+        title: filename,
+        excerpt: content.slice(0, 150),
+        content,
+        date: new Date().toISOString().split('T')[0]
+      };
+    }
+  }
+  return {
+    title: filename,
+    excerpt: content.slice(0, 150),
+    content,
+    date: new Date().toISOString().split('T')[0]
+  };
+}
+
+// GET deployment status
+app.get('/api/deploy/status', (req, res) => {
+  res.json({
+    ready: true,
+    repo: 'raykazine-media-labs',
+    branch: 'main'
+  });
+});
+
+// POST deploy (commit, push, build, deploy to Cloudflare)
+app.post('/api/deploy', async (req, res) => {
+  try {
+    const steps = [];
+
+    // Step 1: Check git status
+    console.log('[Deploy] Checking git status...');
+    const { stdout: status } = await execAsync('git status --porcelain', { cwd: __dirname });
+    
+    if (!status.trim()) {
+      return res.json({
+        success: true,
+        message: 'No changes to deploy',
+        steps: ['No uncommitted changes found']
+      });
+    }
+
+    steps.push('Found changes to commit');
+
+    // Step 2: Git add all
+    console.log('[Deploy] Adding files...');
+    await execAsync('git add .', { cwd: __dirname });
+    steps.push('Added files to git');
+
+    // Step 3: Git commit
+    console.log('[Deploy] Committing changes...');
+    const timestamp = new Date().toISOString();
+    await execAsync(`git commit -m "Content update: ${timestamp}"`, { cwd: __dirname });
+    steps.push('Committed changes to git');
+
+    // Step 4: Git push
+    console.log('[Deploy] Pushing to remote...');
+    try {
+      await execAsync('git push', { cwd: __dirname });
+      steps.push('Pushed to git remote');
+    } catch (pushError) {
+      console.warn('[Deploy] Git push warning:', pushError.message);
+      steps.push('Pushed to git remote (with warning)');
+    }
+
+    // Step 5: Build
+    console.log('[Deploy] Building project...');
+    await execAsync('npm run build', { cwd: __dirname });
+    steps.push('Built project successfully');
+
+    // Step 6: Deploy to Cloudflare
+    console.log('[Deploy] Deploying to Cloudflare...');
+    try {
+      await execAsync('npx wrangler deploy', { cwd: __dirname, timeout: 60000 });
+      steps.push('Deployed to Cloudflare Pages');
+    } catch (deployError) {
+      console.error('[Deploy] Cloudflare deploy error:', deployError.message);
+      throw new Error(`Cloudflare deployment failed: ${deployError.message}`);
+    }
+
+    console.log('[Deploy] Complete!');
+    res.json({
+      success: true,
+      message: 'Successfully deployed to Cloudflare',
+      steps,
+      deployedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[Deploy] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Deployment failed. Check server logs for details.'
+    });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Content API running on http://localhost:${PORT}`);
+});

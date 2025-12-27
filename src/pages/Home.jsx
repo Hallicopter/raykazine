@@ -124,12 +124,18 @@ const Home = ({ onNavigate }) => {
                     <span className="mono">[media labs] v2.1</span>
                 </div>
 
-                {/* Index Link */}
+                {/* Navigation Links */}
                 <button
                     style={styles.indexLink}
                     onClick={() => onNavigate('index')}
                 >
                     <span className="mono" style={{ textDecoration: 'underline' }}>INDEX OF /</span>
+                </button>
+                <button
+                    style={styles.indexLink}
+                    onClick={() => onNavigate('manager')}
+                >
+                    <span className="mono" style={{ textDecoration: 'underline' }}>MANAGE CONTENT</span>
                 </button>
             </div>
 
