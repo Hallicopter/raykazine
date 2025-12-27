@@ -317,9 +317,32 @@ app.delete('/api/articles/:id', (req, res, next) => {
   try {
     const { id } = req.params;
     const { category } = req.query;
+    const contentDir = path.join(__dirname, 'src', 'content');
 
-    const filePath = getFilePath(category, id);
-    await fs.unlink(filePath);
+    let deleted = false;
+
+    if (category === 'note') {
+      const notePath = path.join(contentDir, 'notes', `${id}.json`);
+      try {
+        await fs.unlink(notePath);
+        deleted = true;
+      } catch (e) {
+        // file not found
+      }
+    } else {
+      // essays and articles are .md files
+      const essayPath = path.join(contentDir, 'essays', `${id}.md`);
+      try {
+        await fs.unlink(essayPath);
+        deleted = true;
+      } catch (e) {
+        // file not found
+      }
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Article not found' });
+    }
 
     res.json({ message: 'Article deleted successfully' });
   } catch (error) {
