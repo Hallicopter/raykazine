@@ -5,15 +5,27 @@ import ContentManager from './pages/ContentManager';
 
 function App() {
   const [view, setView] = useState('workbench'); // 'workbench' | 'index' | 'manager'
+  const isDevelopment = import.meta.env.DEV;
+
+  // Only allow manager in development
+  const handleNavigate = (newView) => {
+    if (newView === 'manager' && !isDevelopment) {
+      console.warn('Content Manager only available in development mode');
+      return;
+    }
+    setView(newView);
+  };
 
   return (
     <>
       {view === 'workbench' ? (
-        <Home onNavigate={setView} />
+        <Home onNavigate={handleNavigate} isDevelopment={isDevelopment} />
       ) : view === 'index' ? (
-        <IndexPage onNavigate={setView} />
+        <IndexPage onNavigate={handleNavigate} />
+      ) : isDevelopment && view === 'manager' ? (
+        <ContentManager onNavigate={handleNavigate} />
       ) : (
-        <ContentManager onNavigate={setView} />
+        <Home onNavigate={handleNavigate} isDevelopment={isDevelopment} />
       )}
     </>
   )

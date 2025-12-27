@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, X, AlertCircle, Rocket, Check, Loader } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, AlertCircle, Rocket, Check, Loader, Music, Upload } from 'lucide-react';
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -8,16 +8,25 @@ const ContentManager = ({ onNavigate }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [showAudioForm, setShowAudioForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deploying, setDeploying] = useState(false);
   const [deployStatus, setDeployStatus] = useState(null);
   const [showDeployModal, setShowDeployModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     excerpt: '',
     content: '',
     category: 'essay',
     date: new Date().toISOString().split('T')[0],
+  });
+  const [audioData, setAudioData] = useState({
+    title: '',
+    description: '',
+    duration: '',
+    date: new Date().toISOString().split('T')[0],
+    audioFile: null,
   });
 
   // Load articles on mount
@@ -131,6 +140,66 @@ const ContentManager = ({ onNavigate }) => {
       category: 'essay',
       date: new Date().toISOString().split('T')[0],
     });
+  };
+
+  const handleAudioInputChange = (e) => {
+    const { name, value, files } = e.target;
+    if (name === 'audioFile') {
+      setAudioData(prev => ({
+        ...prev,
+        audioFile: files[0]
+      }));
+    } else {
+      setAudioData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const handleAudioSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!audioData.title || !audioData.audioFile) {
+      setError('Title and audio file are required');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('title', audioData.title);
+      formData.append('description', audioData.description);
+      formData.append('duration', audioData.duration);
+      formData.append('date', audioData.date);
+      formData.append('audio', audioData.audioFile);
+
+      const response = await fetch(`${API_URL}/tapes`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to upload audio');
+      }
+
+      await loadArticles();
+      setAudioData({
+        title: '',
+        description: '',
+        duration: '',
+        date: new Date().toISOString().split('T')[0],
+        audioFile: null,
+      });
+      setShowAudioForm(false);
+    } catch (err) {
+      setError(err.message);
+      console.error('Error uploading audio:', err);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleDeploy = async () => {
@@ -297,52 +366,169 @@ const ContentManager = ({ onNavigate }) => {
 
         {/* Articles List */}
         <div style={styles.listSection}>
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              style={styles.addButton}
-            >
-              <Plus size={20} /> Add New Article
-            </button>
+          {!showForm && !showAudioForm && (
+            <div style={styles.buttonGroup}>
+              <button
+                onClick={() => setShowForm(true)}
+                style={styles.addButton}
+              >
+                <Plus size={20} /> Add Article/Essay
+              </button>
+              <button
+                onClick={() => setShowAudioForm(true)}
+                style={{ ...styles.addButton, backgroundColor: '#4caf50' }}
+              >
+                <Music size={20} /> Upload Audio
+              </button>
+            </div>
           )}
 
-          {error && !showForm && (
+          {error && !showForm && !showAudioForm && (
             <div style={styles.errorBox}>
               <AlertCircle size={16} />
               <span>{error}</span>
             </div>
           )}
 
+          {/* Audio Upload Form */}
+          {showAudioForm && (
+            <div style={styles.audioFormSection}>
+              <div style={styles.formHeader}>
+                <h2>Upload Audio/Tape</h2>
+                <button
+                  onClick={() => setShowAudioForm(false)}
+                  style={styles.closeButton}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {error && (
+                <div style={styles.errorBox}>
+                  <AlertCircle size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleAudioSubmit} style={styles.form}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Title *</label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={audioData.title}
+                    onChange={handleAudioInputChange}
+                    placeholder="Recording title"
+                    style={styles.input}
+                    required
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Audio File *</label>
+                  <input
+                    type="file"
+                    name="audioFile"
+                    onChange={handleAudioInputChange}
+                    accept="audio/*"
+                    style={styles.input}
+                    required
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Duration (e.g., 45:00)</label>
+                  <input
+                    type="text"
+                    name="duration"
+                    value={audioData.duration}
+                    onChange={handleAudioInputChange}
+                    placeholder="Duration"
+                    style={styles.input}
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Description</label>
+                  <textarea
+                    name="description"
+                    value={audioData.description}
+                    onChange={handleAudioInputChange}
+                    placeholder="About this recording"
+                    style={{ ...styles.textarea, minHeight: '80px' }}
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Date</label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={audioData.date}
+                    onChange={handleAudioInputChange}
+                    style={styles.input}
+                  />
+                </div>
+
+                <div style={styles.formActions}>
+                  <button
+                    type="submit"
+                    disabled={uploading}
+                    style={{
+                      ...styles.submitButton,
+                      backgroundColor: '#4caf50',
+                      opacity: uploading ? 0.6 : 1
+                    }}
+                  >
+                    {uploading ? 'Uploading...' : 'Upload Audio'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAudioForm(false)}
+                    style={styles.cancelButton}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
           {loading ? (
             <div style={styles.empty}>
-              <p>Loading articles...</p>
+              <p>Loading content...</p>
             </div>
           ) : articles.length === 0 ? (
             <div style={styles.empty}>
-              <p>No articles yet. Create one to get started.</p>
+              <p>No content yet. Create articles or upload audio to get started.</p>
             </div>
           ) : (
             <div style={styles.articlesList}>
               {articles.map(article => (
                 <div key={article.id} style={styles.articleCard}>
                   <div style={styles.articleHeader}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <h3 style={styles.articleTitle}>{article.title}</h3>
                       <div style={styles.articleMeta}>
                         <span style={styles.category}>{article.category}</span>
                         <span style={styles.date}>
                           {new Date(article.date).toLocaleDateString()}
                         </span>
+                        {article.duration && (
+                          <span style={styles.duration}>{article.duration}</span>
+                        )}
                       </div>
                     </div>
                     <div style={styles.articleActions}>
-                      <button
-                        onClick={() => handleEdit(article)}
-                        style={styles.iconButton}
-                        title="Edit"
-                      >
-                        <Edit2 size={18} />
-                      </button>
+                      {article.category !== 'tape' && (
+                        <button
+                          onClick={() => handleEdit(article)}
+                          style={styles.iconButton}
+                          title="Edit"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(article.id, article.category)}
                         style={{ ...styles.iconButton, color: '#d32f2f' }}
@@ -352,12 +538,18 @@ const ContentManager = ({ onNavigate }) => {
                       </button>
                     </div>
                   </div>
-                  {article.excerpt && (
-                    <p style={styles.articleExcerpt}>{article.excerpt}</p>
+                  {article.category === 'tape' ? (
+                    <p style={styles.tapeDescription}>{article.content}</p>
+                  ) : (
+                    <>
+                      {article.excerpt && (
+                        <p style={styles.articleExcerpt}>{article.excerpt}</p>
+                      )}
+                      <p style={styles.preview}>
+                        {article.content.substring(0, 150)}...
+                      </p>
+                    </>
                   )}
-                  <p style={styles.preview}>
-                    {article.content.substring(0, 150)}...
-                  </p>
                 </div>
               ))}
             </div>
@@ -588,6 +780,11 @@ const styles = {
     flexDirection: 'column',
     gap: '16px',
   },
+  buttonGroup: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
   addButton: {
     padding: '12px 20px',
     backgroundColor: '#333',
@@ -600,8 +797,13 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    alignSelf: 'flex-start',
     transition: 'background-color 0.2s',
+  },
+  audioFormSection: {
+    backgroundColor: '#fff',
+    borderRadius: '8px',
+    padding: '24px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
   articlesList: {
     display: 'grid',
@@ -643,6 +845,17 @@ const styles = {
   },
   date: {
     color: '#999',
+  },
+  duration: {
+    color: '#4caf50',
+    fontWeight: '500',
+  },
+  tapeDescription: {
+    margin: 0,
+    fontSize: '0.95rem',
+    color: '#555',
+    lineHeight: '1.4',
+    fontStyle: 'italic',
   },
   articleActions: {
     display: 'flex',

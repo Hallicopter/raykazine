@@ -5,15 +5,25 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import multer from 'multer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 3001;
 const execAsync = promisify(exec);
 
+// Setup multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Only enable content management API in development
+const isDev = process.env.NODE_ENV !== 'production';
 
 // Helper to get file path based on category
 const getFilePath = (category, filename) => {
@@ -43,8 +53,13 @@ const generateFilename = (title) => {
     .replace(/[^a-z0-9-]/g, '');
 };
 
-// GET all articles (reads from file system)
-app.get('/api/articles', async (req, res) => {
+// GET all articles (reads from file system) - DEV ONLY
+app.get('/api/articles', (req, res, next) => {
+  if (!isDev) {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+  next();
+}, async (req, res) => {
   try {
     const articles = [];
     const contentDir = path.join(__dirname, 'src', 'content');
@@ -94,6 +109,31 @@ app.get('/api/articles', async (req, res) => {
       // notes dir might not exist yet
     }
 
+    // Read tapes (audio)
+    const tapesDir = path.join(contentDir, 'tapes');
+    try {
+      const tapeFiles = await fs.readdir(tapesDir);
+      for (const file of tapeFiles) {
+        if (file.endsWith('.json')) {
+          const content = await fs.readFile(path.join(tapesDir, file), 'utf-8');
+          const data = JSON.parse(content);
+          articles.push({
+            id: file.replace('.json', ''),
+            category: 'tape',
+            type: 'TAPE',
+            title: data.title || 'Untitled Recording',
+            content: data.description || '',
+            excerpt: data.description?.slice(0, 100) || '',
+            date: data.date || new Date().toISOString().split('T')[0],
+            duration: data.duration || '0:00',
+            hasAudio: true
+          });
+        }
+      }
+    } catch (e) {
+      // tapes dir might not exist yet
+    }
+
     // Sort by date descending
     articles.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
@@ -104,8 +144,13 @@ app.get('/api/articles', async (req, res) => {
   }
 });
 
-// POST new article
-app.post('/api/articles', async (req, res) => {
+// POST new article (text-based) - DEV ONLY
+app.post('/api/articles', (req, res, next) => {
+  if (!isDev) {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+  next();
+}, async (req, res) => {
   try {
     const { title, excerpt, content, category, date } = req.body;
 
@@ -163,8 +208,67 @@ app.post('/api/articles', async (req, res) => {
   }
 });
 
-// PUT (update) article
-app.put('/api/articles/:id', async (req, res) => {
+// POST tape with audio file upload - DEV ONLY
+app.post('/api/tapes', (req, res, next) => {
+  if (!isDev) {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+  next();
+}, upload.single('audio'), async (req, res) => {
+  try {
+    const { title, description, duration, date } = req.body;
+
+    if (!title || !req.file) {
+      return res.status(400).json({ error: 'Title and audio file required' });
+    }
+
+    const filename = generateFilename(title);
+    const tapesDir = path.join(__dirname, 'src', 'content', 'tapes');
+    await fs.mkdir(tapesDir, { recursive: true });
+
+    // Determine audio extension from original filename
+    const ext = req.file.originalname.split('.').pop().toLowerCase();
+    const audioPath = path.join(tapesDir, `${filename}.${ext}`);
+    const metadataPath = path.join(tapesDir, `${filename}.json`);
+
+    // Save audio file
+    await fs.writeFile(audioPath, req.file.buffer);
+
+    // Save metadata
+    const tapeData = {
+      title,
+      date,
+      duration: duration || '0:00',
+      description: description || '',
+      x: 0,
+      y: 0,
+      r: 0,
+      z: 100
+    };
+    await fs.writeFile(metadataPath, JSON.stringify(tapeData, null, 2));
+
+    res.json({
+      id: filename,
+      title,
+      description,
+      duration,
+      date,
+      hasAudio: true,
+      message: 'Tape created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating tape:', error);
+    res.status(500).json({ error: 'Failed to create tape' });
+  }
+});
+
+// PUT (update) article - DEV ONLY
+app.put('/api/articles/:id', (req, res, next) => {
+  if (!isDev) {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+  next();
+}, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, excerpt, content, category, date } = req.body;
@@ -203,8 +307,13 @@ app.put('/api/articles/:id', async (req, res) => {
   }
 });
 
-// DELETE article
-app.delete('/api/articles/:id', async (req, res) => {
+// DELETE article - DEV ONLY
+app.delete('/api/articles/:id', (req, res, next) => {
+  if (!isDev) {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+  next();
+}, async (req, res) => {
   try {
     const { id } = req.params;
     const { category } = req.query;
@@ -216,6 +325,51 @@ app.delete('/api/articles/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting article:', error);
     res.status(500).json({ error: 'Failed to delete article' });
+  }
+});
+
+// DELETE tape (both metadata and audio file) - DEV ONLY
+app.delete('/api/tapes/:id', (req, res, next) => {
+  if (!isDev) {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+  next();
+}, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tapesDir = path.join(__dirname, 'src', 'content', 'tapes');
+    
+    let deleted = false;
+
+    // Delete JSON metadata
+    const metadataPath = path.join(tapesDir, `${id}.json`);
+    try {
+      await fs.unlink(metadataPath);
+      deleted = true;
+    } catch (e) {
+      // metadata file doesn't exist
+    }
+
+    // Delete audio file (try common extensions)
+    const audioExts = ['mp3', 'wav', 'm4a', 'ogg', 'flac'];
+    for (const ext of audioExts) {
+      const audioPath = path.join(tapesDir, `${id}.${ext}`);
+      try {
+        await fs.unlink(audioPath);
+        deleted = true;
+      } catch (e) {
+        // file doesn't exist with this extension, try next
+      }
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Tape not found' });
+    }
+
+    res.json({ message: 'Tape deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting tape:', error);
+    res.status(500).json({ error: 'Failed to delete tape' });
   }
 });
 
@@ -258,8 +412,13 @@ app.get('/api/deploy/status', (req, res) => {
   });
 });
 
-// POST deploy (commit, push, build, deploy to Cloudflare)
-app.post('/api/deploy', async (req, res) => {
+// POST deploy (commit, push, build, deploy to Cloudflare) - DEV ONLY
+app.post('/api/deploy', (req, res, next) => {
+  if (!isDev) {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+  next();
+}, async (req, res) => {
   try {
     const steps = [];
 

@@ -5,7 +5,7 @@ import TapePlayer from '../components/TapePlayer';
 import ReaderModal from '../components/ReaderModal';
 import { contentItems } from '../data/content';
 
-const Home = ({ onNavigate }) => {
+const Home = ({ onNavigate, isDevelopment }) => {
     const constraintsRef = useRef(null);
     const [focusedId, setFocusedId] = useState(null);
     const [readContent, setReadContent] = useState(null);
@@ -67,18 +67,29 @@ const Home = ({ onNavigate }) => {
                 }
 
                 // Responsive Scaling with strict boundary enforcement
+                // Reserve space for logo on top-left (approx 400px x 250px)
+                const logoWidth = 450;
+                const logoHeight = 280;
                 const padding = 40;
                 const minX = padding;
                 const minY = padding;
                 const maxX = windowSize.width - itemWidth - padding;
                 const maxY = windowSize.height - itemHeight - padding;
+                
+                // Prevent overlap with logo
+                let safeMinX = minX;
+                let safeMinY = minY;
+                if (item.x < 0.3 && item.y < 0.35) {
+                  safeMinX = Math.max(minX, logoWidth + 20);
+                  safeMinY = Math.max(minY, logoHeight + 20);
+                }
 
                 // Ensure we don't cross (e.g. extremely small screens)
-                const safeWidth = Math.max(0, maxX - minX);
-                const safeHeight = Math.max(0, maxY - minY);
+                const safeWidth = Math.max(0, maxX - safeMinX);
+                const safeHeight = Math.max(0, maxY - safeMinY);
 
-                const finalX = minX + (item.x * safeWidth);
-                const finalY = minY + (item.y * safeHeight);
+                const finalX = safeMinX + (item.x * safeWidth);
+                const finalY = safeMinY + (item.y * safeHeight);
 
                 return (
                     <DraggableArtifact
@@ -131,12 +142,14 @@ const Home = ({ onNavigate }) => {
                 >
                     <span className="mono" style={{ textDecoration: 'underline' }}>INDEX OF /</span>
                 </button>
-                <button
-                    style={styles.indexLink}
-                    onClick={() => onNavigate('manager')}
-                >
-                    <span className="mono" style={{ textDecoration: 'underline' }}>MANAGE CONTENT</span>
-                </button>
+                {isDevelopment && (
+                    <button
+                        style={styles.indexLink}
+                        onClick={() => onNavigate('manager')}
+                    >
+                        <span className="mono" style={{ textDecoration: 'underline' }}>MANAGE CONTENT</span>
+                    </button>
+                )}
             </div>
 
             <ReaderModal
