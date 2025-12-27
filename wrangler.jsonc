@@ -4,14 +4,5 @@
     "assets": {
         "directory": "./dist"
     },
-    "routes": [
-        {
-            "pattern": "raykazine.com",
-            "zone_name": "raykazine.com"
-        },
-        {
-            "pattern": "www.raykazine.com",
-            "zone_name": "raykazine.com"
-        }
-    ]
+    "workers_dev": true
 }
