@@ -112,21 +112,29 @@ const ContentManager = ({ onNavigate }) => {
   };
 
   const handleDelete = async (id, category) => {
-    if (!confirm('Delete this article?')) return;
+    if (!confirm('Delete this item?')) return;
 
     try {
       setError(null);
-      const response = await fetch(`${API_URL}/articles/${id}?category=${category}`, {
+      
+      let url;
+      if (category === 'tape') {
+        url = `${API_URL}/tapes/${id}`;
+      } else {
+        url = `${API_URL}/articles/${id}?category=${category}`;
+      }
+
+      const response = await fetch(url, {
         method: 'DELETE',
       });
 
-      if (!response.ok) throw new Error('Failed to delete article');
+      if (!response.ok) throw new Error('Failed to delete item');
 
       // Reload articles
       await loadArticles();
     } catch (err) {
       setError(err.message);
-      console.error('Error deleting article:', err);
+      console.error('Error deleting item:', err);
     }
   };
 
