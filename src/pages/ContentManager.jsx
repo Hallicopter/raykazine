@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, X, AlertCircle, Rocket, Check, Loader, Music, Upload } from 'lucide-react';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = `http://${window.location.hostname}:3001/api`;
 
 const ContentManager = ({ onNavigate }) => {
   const [articles, setArticles] = useState([]);

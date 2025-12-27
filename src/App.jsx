@@ -5,7 +5,11 @@ import ContentManager from './pages/ContentManager';
 
 function App() {
   const [view, setView] = useState('workbench'); // 'workbench' | 'index' | 'manager'
-  const isDevelopment = import.meta.env.DEV;
+  // Only show manager UI if explicitly in localhost (development)
+  const isDevelopment = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1'
+  );
 
   // Only allow manager in development
   const handleNavigate = (newView) => {
